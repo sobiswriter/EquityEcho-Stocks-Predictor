@@ -15,7 +15,7 @@
 
 ## 🧠 The Tribunal Members
 
-| Analyst | Specialization | Focus |
+| Agents | Specialization | Focus |
 | :--- | :--- | :--- |
 | **MARK** | Chief Quantitative Strategist | Mathematical rigor, P/E ratios, RSI, Debt-to-Equity, and technical indicators. |
 | **ANNA** | Market Intelligence Analyst | Real-time news scouring, social sentiment, global catalysts, and geopolitical impact. |
