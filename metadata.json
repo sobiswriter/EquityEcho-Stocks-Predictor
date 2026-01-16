@@ -1,0 +1,5 @@
+{
+  "name": "EquityEcho: AI Analyst Tribunal",
+  "description": "A high-end financial dashboard that simulates a 'meeting' between three specialized AI analysts—Quant, Sentiment, and Judge—to provide intelligent investment recommendations based on ticker symbols and financial documents.",
+  "requestFramePermissions": []
+}
