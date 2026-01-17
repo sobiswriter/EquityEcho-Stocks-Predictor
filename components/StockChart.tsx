@@ -30,7 +30,9 @@ const compactFormatter = new Intl.NumberFormat('en-US', {
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length > 0) {
-    const price = payload[0]?.value;
+    // Find price payload specifically to ignore volume in text if needed
+    const pricePayload = payload.find((p: any) => p.dataKey === 'price');
+    const price = pricePayload?.value;
     
     return (
       <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm backdrop-blur-xl border-l-4 border-l-blue-500">
@@ -101,7 +103,9 @@ export const StockChart: React.FC<StockChartProps> = ({ data, symbol, mode = 'st
               tick={{ fontWeight: '800', fill: '#64748b' }}
               dy={15}
             />
+            {/* Primary Y-Axis for Price */}
             <YAxis 
+              yAxisId="price"
               stroke="#475569" 
               fontSize={9} 
               tickLine={false}
@@ -111,9 +115,18 @@ export const StockChart: React.FC<StockChartProps> = ({ data, symbol, mode = 'st
               tick={{ fontWeight: '800', fill: '#64748b' }}
               dx={-5}
             />
+            {/* Secondary Hidden Y-Axis for Volume so it doesn't break price scale */}
+            <YAxis 
+              yAxisId="volume"
+              hide={true}
+              domain={[0, 'auto']}
+            />
+            
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#334155', strokeWidth: 1 }} />
-            <ReferenceLine y={currentPrice} stroke="#334155" strokeDasharray="4 4" opacity={0.5} />
+            <ReferenceLine yAxisId="price" y={currentPrice} stroke="#334155" strokeDasharray="4 4" opacity={0.5} />
+            
             <Area 
+              yAxisId="price"
               type="monotone" 
               dataKey="price" 
               stroke={isTactical ? "#60a5fa" : "#2563eb"} 
@@ -123,6 +136,7 @@ export const StockChart: React.FC<StockChartProps> = ({ data, symbol, mode = 'st
               animationDuration={1500}
             />
             <Line 
+              yAxisId="price"
               type="monotone" 
               dataKey="price" 
               stroke={isTactical ? "#60a5fa" : "#2563eb"} 
@@ -131,6 +145,7 @@ export const StockChart: React.FC<StockChartProps> = ({ data, symbol, mode = 'st
               activeDot={{ r: 6, strokeWidth: 0 }}
             />
             <Bar 
+              yAxisId="volume"
               dataKey="volume" 
               barSize={isTactical ? 30 : 12} 
               fill="#1e293b" 

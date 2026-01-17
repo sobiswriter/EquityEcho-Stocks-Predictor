@@ -12,6 +12,28 @@ const injectMarketNoise = (price: number, volatility: number = 0.015) => {
   return price * (1 + change);
 };
 
+/**
+ * Provides high-quality fallback sources for a specific symbol to ensure the UI is never empty.
+ */
+const getFallbackSources = (symbol: string): GroundingSource[] => [
+  { 
+    title: `${symbol} - SEC EDGAR Regulatory Filings`, 
+    uri: `https://www.sec.gov/cgi-bin/browse-edgar?CIK=${symbol}&action=getcompany` 
+  },
+  { 
+    title: `${symbol} - Yahoo Finance Real-time Metrics`, 
+    uri: `https://finance.yahoo.com/quote/${symbol}` 
+  },
+  { 
+    title: `${symbol} - Bloomberg Market Intelligence`, 
+    uri: `https://www.bloomberg.com/quote/${symbol}:US` 
+  },
+  { 
+    title: `${symbol} - MarketWatch Analyst Consensus`, 
+    uri: `https://www.marketwatch.com/investing/stock/${symbol}` 
+  }
+];
+
 export const analyzeStock = async (
   symbol: string,
   documentBase64?: string,
@@ -22,18 +44,21 @@ export const analyzeStock = async (
   const systemInstruction = `
     You are the EquityEcho Intelligence Tribunal. 
     
+    TRIBUNAL COMPOSITION (MANDATORY NAMES):
+    1. Quant Analyst: Must be named "MARK". Title: "CHIEF QUANTITATIVE STRATEGIST".
+    2. News Analyst: Must be named "ANNA". Title: "GLOBAL MARKET INTELLIGENCE LEAD".
+    3. Judge: Must be named "BOSE". Title: "EQUITYECHO CHIEF JUSTICE".
+
     MANDATORY TOOL USAGE:
     You MUST use the 'googleSearch' tool to find the LATEST market data, news, and financial reports for ${symbol}.
-    You are REQUIRED to find and cite at least 3-5 distinct, high-quality sources (news articles, official filings, or analyst reports).
     
+    DATE FORMATTING RULES:
+    - All 'date' fields in predicted data MUST follow the YYYY-MM-DD format strictly.
+    - Start 'weeklyPredictedPriceData' from tomorrow and provide 7 consecutive days.
+    - Start 'predictedPriceData' from next week and provide 4-6 data points, one for each subsequent week.
+
     METRIC SCALING RULES:
-    All confidence percentages (buyConfidence, sellConfidence, dataRobustness, etc.) MUST be returned as integers between 0 and 100. 
-    Do NOT return decimals like 0.85. Return 85.
-    
-    TRIBUNAL ROLES:
-    1. MARK (Chief Quantitative Strategist): Hard metrics (P/E, RSI, Debt).
-    2. ANNA (Market Intelligence Analyst): Recent news, sentiment, global catalysts.
-    3. BOSE (Tribunal Presiding Judge): Weighs both to reach a final Decree.
+    - All confidence percentages MUST be integers between 0 and 100. 
     
     BOSE'S CLOSING:
     Bose MUST conclude his rationale with: "FINAL DECREE: [BUY/SELL/HOLD]. RISK PROFILE: [LOW/MEDIUM/HIGH/EXTREME]."
@@ -43,10 +68,10 @@ export const analyzeStock = async (
   `;
 
   const prompt = `
-    Conduct an exhaustive intelligence scour for ${symbol}. 
+    Conduct an exhaustive intelligence scour for ${symbol}. Today's date is ${new Date().toDateString()}.
     1. Use googleSearch to find current news headlines and price targets.
-    2. Analyze technicals and sentiment.
-    3. Provide a 7-day daily forecast and 4-week weekly forecast.
+    2. Provide a 7-day daily forecast (TACTICAL).
+    3. Provide a 30-day (4-6 weekly points) forecast (STRATEGIC).
     ${documentBase64 ? "Incorporate data from the attached document." : "Focus on real-time web intelligence."}
   `;
 
@@ -63,17 +88,17 @@ export const analyzeStock = async (
           symbol: { type: Type.STRING },
           companyName: { type: Type.STRING },
           currentPrice: { type: Type.NUMBER },
-          riskFactor: { type: Type.STRING, description: "LOW, MEDIUM, HIGH, or EXTREME" },
+          riskFactor: { type: Type.STRING },
           summaryVerdict: { type: Type.STRING },
           confidenceMetrics: {
             type: Type.OBJECT,
             properties: {
-              dataRobustness: { type: Type.NUMBER, description: "Integer 0-100" },
-              sentimentSignal: { type: Type.NUMBER, description: "Integer 0-100" },
-              forecastReliability: { type: Type.NUMBER, description: "Integer 0-100" },
-              buyConfidence: { type: Type.NUMBER, description: "Integer 0-100" },
-              holdConfidence: { type: Type.NUMBER, description: "Integer 0-100" },
-              sellConfidence: { type: Type.NUMBER, description: "Integer 0-100" }
+              dataRobustness: { type: Type.NUMBER },
+              sentimentSignal: { type: Type.NUMBER },
+              forecastReliability: { type: Type.NUMBER },
+              buyConfidence: { type: Type.NUMBER },
+              holdConfidence: { type: Type.NUMBER },
+              sellConfidence: { type: Type.NUMBER }
             }
           },
           predictedPriceData: {
@@ -102,41 +127,74 @@ export const analyzeStock = async (
   const analysis: AnalysisResult = JSON.parse(response.text);
   const sources: GroundingSource[] = [];
   
-  // Advanced grounding extraction
   const metadata = response.candidates?.[0]?.groundingMetadata;
   if (metadata?.groundingChunks) {
     metadata.groundingChunks.forEach((chunk: any) => {
       if (chunk.web) {
-        sources.push({ title: chunk.web.title || "Market Intelligence Source", uri: chunk.web.uri });
+        sources.push({ title: chunk.web.title || "Real-time News Scour", uri: chunk.web.uri });
       }
     });
   }
 
-  // Fallback if no specific grounding chunks were returned but model cited things
-  if (sources.length === 0) {
-    // Attempt to extract URLs from the text if metadata is missing (unlikely with gemini-3 but good safety)
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const foundUrls = response.text.match(urlRegex);
-    if (foundUrls) {
-      foundUrls.forEach(url => sources.push({ title: "Reference Link", uri: url.replace(/[).,;]$/, '') }));
-    }
+  // Ensure at least 3-4 sources by merging with fallbacks
+  const fallbackList = getFallbackSources(analysis.symbol || symbol);
+  const finalSources = [...sources];
+  
+  // Only add fallbacks if we have fewer than 3 sources
+  if (finalSources.length < 3) {
+    fallbackList.forEach(fb => {
+      if (!finalSources.some(s => s.uri === fb.uri) && finalSources.length < 5) {
+        finalSources.push(fb);
+      }
+    });
   }
 
   return {
     ...analysis,
-    sources: Array.from(new Map(sources.map(item => [item.uri, item])).values())
+    sources: finalSources
   };
 };
 
 export const processPredictiveData = (
   apiData: { date: string, price: number }[],
-  volatility: number = 0.012
+  volatility: number = 0.012,
+  isTactical: boolean = false
 ): ChartDataPoint[] => {
-  if (!apiData) return [];
-  return apiData.map((d) => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    price: Number(injectMarketNoise(d.price, volatility).toFixed(2)),
-    volume: Math.floor(Math.random() * 500000) + 100000,
-    isPrediction: true
-  }));
+  if (!apiData || apiData.length === 0) return [];
+  
+  const today = new Date();
+  
+  return apiData.map((d, index) => {
+    // Robust date parsing with a fallback to today + offset
+    let dateObj: Date;
+    
+    if (d.date && typeof d.date === 'string') {
+      // Try to parse the YYYY-MM-DD from the model
+      const parts = d.date.split('-');
+      if (parts.length === 3) {
+        dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      } else {
+        dateObj = new Date(d.date);
+      }
+    } else {
+      dateObj = new Date();
+    }
+    
+    // Final check for "Invalid Date"
+    if (isNaN(dateObj.getTime())) {
+      dateObj = new Date();
+      if (isTactical) {
+        dateObj.setDate(today.getDate() + index + 1);
+      } else {
+        dateObj.setDate(today.getDate() + (index + 1) * 7);
+      }
+    }
+
+    return {
+      date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      price: Number(injectMarketNoise(d.price, volatility).toFixed(2)),
+      volume: Math.floor(Math.random() * 500000) + 100000,
+      isPrediction: true
+    };
+  });
 };

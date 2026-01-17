@@ -52,8 +52,8 @@ const App: React.FC = () => {
       }
       const result = await analyzeStock(symbol, documentBase64, mimeType);
       
-      setWeeklyChart(processPredictiveData(result.weeklyPredictedPriceData || [], 0.02));
-      setMonthlyChart(processPredictiveData(result.predictedPriceData || [], 0.01));
+      setWeeklyChart(processPredictiveData(result.weeklyPredictedPriceData || [], 0.02, true));
+      setMonthlyChart(processPredictiveData(result.predictedPriceData || [], 0.01, false));
       setAnalysis(result);
     } catch (err: any) {
       console.error(err);
@@ -63,10 +63,8 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to ensure percentages are displayed as 0-100 integers
   const formatPercent = (val: number | undefined) => {
     if (val === undefined) return 0;
-    // If the value is small (like 0.95), multiply by 100
     if (val > 0 && val <= 1) return Math.round(val * 100);
     return Math.round(val);
   };
