@@ -9,7 +9,7 @@
 ---
 
 ## 💎 The Vision
-**EquityEcho** is a sophisticated financial intelligence dashboard designed to cut through market noise. Unlike standard stock trackers, EquityEcho simulates a high-stakes boardroom deliberation between three distinct AI personas. By pitting quantitative rigor against real-time sentiment, it provides a unified "Decree" that balances hard numbers with the unpredictability of the news cycle.
+**EquityEcho** is a sophisticated financial intelligence dashboard designed to cut through market noise. Unlike standard stock trackers, EquityEcho simulates a high-stakes boardroom deliberation between three distinct AI personas. By pitting quantitative rigor against real-time sentiment, it provides a unified "Decree" that balances hard numbers with the unpredictability of the news cycle. Damn gatta make more projects that are at all sectors as well.
 
 ---
 
